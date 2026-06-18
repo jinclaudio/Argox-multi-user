@@ -21,6 +21,7 @@ WS_PATH_DEFAULT='argox'
 WORK_DIR='/etc/argox'
 TEMP_DIR='/tmp/argox'
 CUSTOM_FILE="$WORK_DIR/custom"
+USERS_FILE="$WORK_DIR/users.json"
 FIREWALL_STATE_DIR="${WORK_DIR}/firewall"
 SERVICE_FIREWALL_STATE_FILE="${FIREWALL_STATE_DIR}/service_ports.list"
 TLS_SERVER='addons.mozilla.org'
@@ -1181,6 +1182,256 @@ input_uuid() {
   done
 }
 
+
+# 多用户 / 专属 outbound 管理
+valid_uuid() {
+  [[ "${1,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]
+}
+
+sanitize_user_name() {
+  local _name="$1"
+  _name=$(echo "$_name" | sed 's/[[:space:]]\+/-/g; s/[^A-Za-z0-9_.@-]//g')
+  [ -z "$_name" ] && _name="user"
+  printf '%s' "$_name"
+}
+
+user_email_from_name() {
+  printf '%s@argox' "$(sanitize_user_name "$1")"
+}
+
+ensure_users_file() {
+  mkdir -p "$WORK_DIR"
+  if [ ! -s "$USERS_FILE" ]; then
+    local _uuid="${UUID:-}" _name="${NODE_NAME:-default}"
+    if [ -z "$_uuid" ] && [ -s "$WORK_DIR/inbound.json" ] && [ -x "$WORK_DIR/jq" ]; then
+      _uuid=$(grep -v '^//' "$WORK_DIR/inbound.json" | "$WORK_DIR/jq" -r '.inbounds[0].settings.clients[0].id // .inbounds[0].settings.clients[0].password // .inbounds[0].settings.clients[0].auth // empty' 2>/dev/null)
+      _name=$(grep -v '^//' "$WORK_DIR/inbound.json" | "$WORK_DIR/jq" -r '.inbounds[0].tag // "default"' 2>/dev/null | sed 's/ [^ ]*$//')
+    fi
+    [ -z "$_uuid" ] && _uuid=$(cat /proc/sys/kernel/random/uuid)
+    [ -z "$_name" ] && _name='default'
+    "$WORK_DIR/jq" -n --arg name "$_name" --arg uuid "$_uuid" '[{name:$name, uuid:$uuid, email:"default@argox", outboundTag:""}]' > "$USERS_FILE"
+  fi
+}
+
+upsert_user_record() {
+  local _name="$1" _uuid="$2" _email="$3" _tag="${4:-}"
+  ensure_users_file
+  local _tmp="$TEMP_DIR/users.json"
+  "$WORK_DIR/jq" --arg name "$_name" --arg uuid "$_uuid" --arg email "$_email" --arg tag "$_tag" '
+    (map(select(.email != $email and .uuid != $uuid)) + [{name:$name, uuid:$uuid, email:$email, outboundTag:$tag}])
+  ' "$USERS_FILE" > "$_tmp" && mv "$_tmp" "$USERS_FILE"
+}
+
+parse_wg_conf_value() {
+  local _conf="$1" _section="$2" _key="$3"
+  awk -F= -v section="$_section" -v key="$_key" '
+    BEGIN { in_section=0 }
+    /^[[:space:]]*\[/ { in_section = ($0 ~ "\\[" section "\\]"); next }
+    in_section && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {
+      val=$2; sub(/[[:space:]]*[#;].*$/, "", val); gsub(/^[[:space:]]+|[[:space:]]+$/, "", val); print val; exit
+    }
+  ' "$_conf"
+}
+
+add_wireguard_outbound() {
+  local _conf="$1" _tag="$2"
+  [ -s "$_conf" ] || error " WireGuard config not found: $_conf "
+  local _private _address _mtu _public _endpoint _allowed _addr_json _allowed_json _tmp
+  _private=$(parse_wg_conf_value "$_conf" Interface PrivateKey)
+  _address=$(parse_wg_conf_value "$_conf" Interface Address)
+  _mtu=$(parse_wg_conf_value "$_conf" Interface MTU)
+  _public=$(parse_wg_conf_value "$_conf" Peer PublicKey)
+  _endpoint=$(parse_wg_conf_value "$_conf" Peer Endpoint)
+  _allowed=$(parse_wg_conf_value "$_conf" Peer AllowedIPs)
+  [ -z "$_private" ] || [ -z "$_address" ] || [ -z "$_public" ] || [ -z "$_endpoint" ] || [ -z "$_allowed" ] && error " WireGuard config missing required fields "
+  _mtu=${_mtu:-1420}
+  [[ "$_mtu" =~ ^[0-9]+$ ]] || _mtu=1420
+  _addr_json=$(printf '%s' "$_address" | "$WORK_DIR/jq" -R 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')
+  _allowed_json=$(printf '%s' "$_allowed" | "$WORK_DIR/jq" -R 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')
+  _tmp="$TEMP_DIR/outbound_wg.json"
+  "$WORK_DIR/jq" \
+    --arg tag "$_tag" --arg privateKey "$_private" --arg publicKey "$_public" --arg endpoint "$_endpoint" \
+    --argjson address "$_addr_json" --argjson allowedIPs "$_allowed_json" --argjson mtu "$_mtu" '
+      .outbounds = ((.outbounds // []) | map(select(.tag != $tag)) + [{
+        "protocol":"wireguard",
+        "tag":$tag,
+        "settings":{
+          "secretKey":$privateKey,
+          "address":$address,
+          "peers":[{"publicKey":$publicKey,"endpoint":$endpoint,"allowedIPs":$allowedIPs}],
+          "mtu":$mtu
+        }
+      }])
+    ' "$WORK_DIR/outbound.json" > "$_tmp" && mv "$_tmp" "$WORK_DIR/outbound.json"
+}
+
+sync_users_to_xray_configs() {
+  [ -s "$WORK_DIR/inbound.json" ] && [ -s "$WORK_DIR/outbound.json" ] && [ -x "$WORK_DIR/jq" ] || return 0
+  ensure_users_file
+  local _tmp="$TEMP_DIR/inbound_users.json"
+  "$WORK_DIR/jq" --slurpfile users "$USERS_FILE" '
+    def user_client($u):
+      if has("id") then .id = $u.uuid else . end
+      | if has("password") then .password = $u.uuid else . end
+      | if has("auth") then .auth = $u.uuid else . end
+      | .email = $u.email;
+    .inbounds |= map(
+      if (.settings.clients? and (.settings.clients | type == "array") and (.settings.clients | length > 0)) then
+        .settings.clients as $orig
+        | .settings.clients = (
+            ($orig | map(select(.email as $e | ($users[0] | map(.email) | index($e)) | not)
+                         | select((.id // .password // .auth // "") as $v | ($users[0] | map(.uuid) | index($v)) | not)))
+            + ($users[0] | map(. as $u | $orig[0] | user_client($u)))
+          )
+      else . end
+    )
+  ' "$WORK_DIR/inbound.json" > "$_tmp" && mv "$_tmp" "$WORK_DIR/inbound.json"
+
+  _tmp="$TEMP_DIR/outbound_users.json"
+  "$WORK_DIR/jq" --slurpfile users "$USERS_FILE" '
+    ($users[0] | map(select((.outboundTag // "") != ""))) as $routed
+    | .routing.rules = (
+        ($routed | map({"type":"field", "user":[.email], "outboundTag":.outboundTag}))
+        + ((.routing.rules // []) | map(select((.user // []) as $ru | any($routed[]?; (.email as $e | ($ru | index($e))) ) | not)))
+      )
+  ' "$WORK_DIR/outbound.json" > "$_tmp" && mv "$_tmp" "$WORK_DIR/outbound.json"
+}
+
+sync_user_subscriptions() {
+  [ -s "$USERS_FILE" ] && [ -x "$WORK_DIR/jq" ] || return 0
+  local _default_uuid="$1" _name _uuid _email _dir _file
+  while IFS=$'\t' read -r _name _uuid _email; do
+    [ -z "$_uuid" ] && continue
+    _dir="$WORK_DIR/subscribe/$_uuid"
+    mkdir -p "$_dir"
+    for _file in v2rayn throne shadowrocket clash proxies sing-box; do
+      [ -s "$WORK_DIR/subscribe/$_file" ] || continue
+      case "$_file" in
+        v2rayn|throne|shadowrocket)
+          if base64 -d "$WORK_DIR/subscribe/$_file" > "$TEMP_DIR/sub_decode" 2>/dev/null; then
+            sed "s#${_default_uuid}#${_uuid}#g" "$TEMP_DIR/sub_decode" | base64 -w0 > "$_dir/$_file"
+            rm -f "$TEMP_DIR/sub_decode"
+          else
+            cp "$WORK_DIR/subscribe/$_file" "$_dir/$_file"
+          fi
+          ;;
+        *)
+          sed "s#${_default_uuid}#${_uuid}#g" "$WORK_DIR/subscribe/$_file" > "$_dir/$_file"
+          ;;
+      esac
+    done
+  done < <("$WORK_DIR/jq" -r '.[] | [.name,.uuid,.email] | @tsv' "$USERS_FILE")
+
+  {
+    echo ""
+    echo "*******************************************"
+    echo "Multi-user subscriptions:"
+    "$WORK_DIR/jq" -r --arg domain "$ARGO_DOMAIN" '.[] | "- " + .name + " (" + .email + "): https://" + $domain + "/" + .uuid + "/auto"' "$USERS_FILE"
+  } >> "$WORK_DIR/list"
+}
+
+collect_install_users() {
+  ensure_users_file
+  if grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+    [ -z "${EXTRA_USERS:-}" ] && return 0
+    local _entry _name _uuid _wg _email _tag
+    IFS=';' read -ra _entries <<< "$EXTRA_USERS"
+    for _entry in "${_entries[@]}"; do
+      [ -z "$_entry" ] && continue
+      IFS=':' read -r _name _uuid _wg <<< "$_entry"
+      _name=$(sanitize_user_name "${_name:-user}")
+      valid_uuid "$_uuid" || error " Invalid EXTRA_USERS uuid: $_uuid "
+      _email=$(user_email_from_name "$_name")
+      _tag=""
+      if [ -n "${_wg:-}" ]; then
+        _tag="user-${_name}-wireguard"
+        add_wireguard_outbound "$_wg" "$_tag"
+      fi
+      upsert_user_record "$_name" "$_uuid" "$_email" "$_tag"
+    done
+    sync_users_to_xray_configs
+    return 0
+  fi
+
+  local _add _name _uuid _wg _email _tag
+  reading "\n Add extra users now? [y/N]: " _add
+  [[ "${_add,,}" = 'y' ]] || return 0
+  while true; do
+    reading " User name (Enter to finish): " _name
+    [ -z "$_name" ] && break
+    _name=$(sanitize_user_name "$_name")
+    reading " User UUID (Enter to generate): " _uuid
+    _uuid=${_uuid:-$(cat /proc/sys/kernel/random/uuid)}
+    valid_uuid "$_uuid" || { warning " Invalid UUID "; continue; }
+    reading " WireGuard config path for this user (Enter to use default outbound): " _wg
+    _email=$(user_email_from_name "$_name")
+    _tag=""
+    if [ -n "$_wg" ]; then
+      _tag="user-${_name}-wireguard"
+      add_wireguard_outbound "$_wg" "$_tag"
+    fi
+    upsert_user_record "$_name" "$_uuid" "$_email" "$_tag"
+    info " Added user: $_name $_uuid ${_tag:+-> $_tag}"
+  done
+  sync_users_to_xray_configs
+}
+
+manage_users() {
+  check_install
+  [ "${STATUS[1]}" = "$(text 26)" ] && error "\n $(text 39) \n"
+  fetch_nodes_value || true
+  ensure_users_file
+  while true; do
+    hint "\n User / outbound management"
+    "$WORK_DIR/jq" -r 'to_entries[] | " " + ((.key + 1)|tostring) + ". " + .value.name + "  " + .value.uuid + "  outbound=" + ((.value.outboundTag // "") as $t | if $t == "" then "default" else $t end)' "$USERS_FILE"
+    hint " a. Add user"
+    hint " w. Bind WireGuard outbound to existing user"
+    hint " q. Back"
+    reading " $(text 24) " _op
+    case "${_op,,}" in
+      a)
+        local _name _uuid _wg _email _tag
+        reading " User name: " _name
+        [ -z "$_name" ] && continue
+        _name=$(sanitize_user_name "$_name")
+        reading " User UUID (Enter to generate): " _uuid
+        _uuid=${_uuid:-$(cat /proc/sys/kernel/random/uuid)}
+        valid_uuid "$_uuid" || { warning " Invalid UUID "; continue; }
+        reading " WireGuard config path (Enter to use default outbound): " _wg
+        _email=$(user_email_from_name "$_name")
+        _tag=""
+        if [ -n "$_wg" ]; then
+          _tag="user-${_name}-wireguard"
+          add_wireguard_outbound "$_wg" "$_tag"
+        fi
+        upsert_user_record "$_name" "$_uuid" "$_email" "$_tag"
+        sync_users_to_xray_configs
+        json_nginx
+        cmd_systemctl restart xray
+        export_list
+        ;;
+      w)
+        local _idx _wg _name _uuid _email _tag
+        reading " Select user number: " _idx
+        [[ "$_idx" =~ ^[0-9]+$ ]] || continue
+        _name=$("$WORK_DIR/jq" -r ".[$((_idx-1))].name // empty" "$USERS_FILE")
+        _uuid=$("$WORK_DIR/jq" -r ".[$((_idx-1))].uuid // empty" "$USERS_FILE")
+        _email=$("$WORK_DIR/jq" -r ".[$((_idx-1))].email // empty" "$USERS_FILE")
+        [ -z "$_uuid" ] && continue
+        reading " WireGuard config path: " _wg
+        [ -s "$_wg" ] || { warning " Config not found "; continue; }
+        _tag="user-$(sanitize_user_name "$_name")-wireguard"
+        add_wireguard_outbound "$_wg" "$_tag"
+        upsert_user_record "$_name" "$_uuid" "$_email" "$_tag"
+        sync_users_to_xray_configs
+        cmd_systemctl restart xray
+        export_list
+        ;;
+      q|0) break ;;
+    esac
+  done
+}
+
 # 输入 WS/XHTTP 内部起始端口，连续 NUM 个端口逐一检测是否被占用
 input_start_port() {
   local NUM=$1
@@ -2055,16 +2306,17 @@ json_nginx() {
   grep -qw 'ss-ws' <<< "$PROTOCOLS_NOW" && _add_location "$(_ws_location "/${WS_PATH}-sh" "$_PORT_SH")"
   grep -q 'xhttp-h1.1-cdn' <<< "$PROTOCOLS_NOW" && _add_location "$(_xhttp_location "/${WS_PATH}-xh" "${_PORT_XH}")"
   local SUB_BLOCK
-  SUB_BLOCK=$(printf '    location ~ ^/%s/auto {
+  SUB_BLOCK=$(printf '    location ~ ^/([^/]+)/auto {
       default_type  text/plain;
-      alias         %s/subscribe/$path;
+      alias         %s/subscribe/$1$path;
     }
 
-    location ~ ^/%s/(.*) {
+    location ~ ^/([^/]+)/(.*) {
       autoindex     on;
       default_type  text/plain;
-      alias         %s/subscribe/$1;
-    }\n' "$UUID" "$WORK_DIR" "$UUID" "$WORK_DIR")
+      alias         %s/subscribe/$1/$2;
+    }
+' "$WORK_DIR" "$WORK_DIR")
   SERVER_BLOCK+="$SUB_BLOCK"
 
   cat > $WORK_DIR/nginx.conf << EOF
@@ -3033,6 +3285,9 @@ EOF
 }
 EOF
 
+  ensure_users_file
+  collect_install_users
+  sync_users_to_xray_configs
   [ "$INSTALL_NGINX" != 'n' ] && json_nginx
 
   check_install
@@ -3384,6 +3639,8 @@ $($WORK_DIR/qrencode ${_SUB_SCHEME}://${ARGO_DOMAIN}/${UUID}/auto)
 "
 
   echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
+  ensure_users_file
+  sync_user_subscriptions "$UUID"
   cat $WORK_DIR/list
 
   statistics_of_run-times get
@@ -4174,11 +4431,12 @@ menu_setting() {
     OPTION[4]="4 .  $(text 30)"
     OPTION[5]="5 .  $(text 76)"
     OPTION[6]="6 .  $(text 95)"
-    OPTION[7]="7 .  $(text 31)"
-    OPTION[8]="8 .  $(text 32)"
-    OPTION[9]="9 .  $(text 33)"
-    OPTION[10]="10.  $(text 51)"
-    OPTION[11]="11.  $(text 57)"
+    OPTION[7]="7 .  User / outbound management"
+    OPTION[8]="8 .  $(text 31)"
+    OPTION[9]="9 .  $(text 32)"
+    OPTION[10]="10.  $(text 33)"
+    OPTION[11]="11.  $(text 51)"
+    OPTION[12]="12.  $(text 57)"
 
     ACTION[1]() { export_list; exit 0; }
     [[ ${STATUS[0]} = "$(text 28)" ]] &&
@@ -4206,11 +4464,12 @@ menu_setting() {
     ACTION[4]() { change_argo; exit; }
     ACTION[5]() { change_config; exit; }
     ACTION[6]() { change_protocols; exit; }
-    ACTION[7]() { version; exit; }
-    ACTION[8]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
-    ACTION[9]() { uninstall; exit; }
-    ACTION[10]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
-    ACTION[11]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
+    ACTION[7]() { manage_users; exit; }
+    ACTION[8]() { version; exit; }
+    ACTION[9]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
+    ACTION[10]() { uninstall; exit; }
+    ACTION[11]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
+    ACTION[12]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -$L; exit; }
 
   else
     OPTION[1]="1.  $(text 77)"
@@ -4284,7 +4543,7 @@ fi
 [[ "${*,,}" =~ '-e'|'-k' ]] && L=E
 [[ "${*,,}" =~ '-c'|'-b'|'-l' ]] && L=C
 
-while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
+while getopts ":AaXxTtDdMmUuNnVvBbRrF:f:KkLl" OPTNAME; do
   case "${OPTNAME,,}" in
     a ) select_language; check_system_info; check_install
         [ "${STATUS[0]}" = "$(text 28)" ] && {
@@ -4312,6 +4571,7 @@ while getopts ":AaXxTtDdUuNnVvBbRrF:f:KkLl" OPTNAME; do
         }; exit 0 ;;
     t ) select_language; check_system_info; check_arch; change_argo; exit 0 ;;
     d ) select_language; check_system_info; change_config; exit 0 ;;
+    m ) select_language; check_system_info; check_install; manage_users; exit 0 ;;
     r ) select_language; check_system_info; check_install; change_protocols; exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0;;
     n ) select_language; check_system_info; export_list; exit 0 ;;

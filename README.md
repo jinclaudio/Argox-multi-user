@@ -2,6 +2,8 @@
 
 中文 | [English](README_EN.md)
 
+> 本项目是基于 [fscarmen/ArgoX](https://github.com/fscarmen/ArgoX.git) 的 fork 二开版本，增加多用户与用户专属 outbound 管理能力。
+
 * * *
 
 # 目录
@@ -19,7 +21,9 @@
 - [免责声明](README.md#免责声明)
 
 * * *
+
 ## 更新信息
+
 2026.06.04 v2.0.7 1. 使用 Throne 替代 Nekobox 进行客户端输出; 2. 独立生成 v2rayN 配置; 3. 安全升级：移除 insecure=true，启用 TLS 证书指纹校验
 
 2026.04.21 v2.0.6 1. 保持 CDN 下的 XHTTP 继续走 Nginx 反代链路，并由 Nginx 负责基于路径的分流; 2. 增加适配 Clash Mihomo 的 XHTTP 客户端输出，在固定隧道下覆盖 HTTP/1.1 CDN 与 HTTP/3 Direct
@@ -40,7 +44,7 @@
 >
 >2026.03.30 v2.0.0 将 ArgoX 重构为模块化协议架构，新增 Hysteria2 和 VLESS/XHTTP 支持，实现协议的自定义安装与管理
 >
->2025.12.15 v1.6.13 Argo 隧道新增通过 API 创建 --- 自动完成：创建隧道 > DNS 配置 > 回源设置。感谢热心网友 [zmlu] 提供的方法: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
+>2025.12.15 v1.6.13 Argo 隧道新增通过 API 创建 --- 自动完成：创建隧道 > DNS 配置 > 回源设置。感谢热心网友 [zmlu] 提供的方法: <https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh>
 >
 >2025.12.09 v1.6.12 极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 `-l` 或 `-L`，英文用户使用 `-k` 或 `-K`，大小写均支持，操作更灵活
 >
@@ -80,7 +84,7 @@
 >
 >2023.4.13 1.0 正式版
 >
->2023.3.11 beta6 1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, https://fscarmen.cloudflare.now.cc;  2. 改掉敏感路径名; 3. 下载增加 CDN
+>2023.3.11 beta6 1. 用户可以通过配套的功能网轻松获取固定域名隧道的 json, <https://fscarmen.cloudflare.now.cc>;  2. 改掉敏感路径名; 3. 下载增加 CDN
 >
 >2023.3.4 beta5 1. 把对所有的网络地址监听改为只对 Argo 隧道作定向监听，以增加安全性; 2. Argo 隧道支持双栈
 >
@@ -94,21 +98,19 @@
 
 </details>
 
+## 项目特点
 
-## 项目特点:
-
-* 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / 直连 TLS；
-* 正常用 CF 是访问机房回源，Argo 则是每次创建两个反向链接到两个就近机房，然后回源是通过源服务器就近机房回源，其中用户访问机房到源服务器连接的就近机房之间是 CF 自己的黑盒线路；
-* 使用 CloudFlare 的 Argo 隧道，使用 TLS 加密通信，可以将应用程序流量安全地传输到 Cloudflare 网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel 也可以防止 IP 泄露和 DDoS 攻击等网络威胁；
-* Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守 443 被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
-* Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
-* **安装时可按需多选协议**，支持 11 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
-* Hysteria2、VLESS + XHTTP Direct、Trojan Direct 使用自签证书直连；更换 TLS 域名时会自动同步重新生成自签证书；
-* Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality、Hysteria2、Trojan Direct、Shadowsocks 2022 Direct 与 XHTTP Direct 可按各自模式直连，架构简洁；
-* 内置 warp 链式代理解锁 chatGPT；
-* 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Throne / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
-* 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到 5 秒。
-
+- 在 VPS 中部署 Xray，采用的方案为 Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / 直连 TLS；
+- 正常用 CF 是访问机房回源，Argo 则是每次创建两个反向链接到两个就近机房，然后回源是通过源服务器就近机房回源，其中用户访问机房到源服务器连接的就近机房之间是 CF 自己的黑盒线路；
+- 使用 CloudFlare 的 Argo 隧道，使用 TLS 加密通信，可以将应用程序流量安全地传输到 Cloudflare 网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel 也可以防止 IP 泄露和 DDoS 攻击等网络威胁；
+- Argo 是内网穿透的隧道，既 Xray 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守 443 被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
+- Argo 隧道既支持临时隧道，又支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书，并可以在安装后随时转换；
+- **安装时可按需多选协议**，支持 11 种协议：VLESS + Reality Vision、Hysteria2、VLESS + Reality gRPC、VLESS + WS、VMess + WS、Trojan + WS、Shadowsocks + WS、VLESS + XHTTP、VLESS + XHTTP Direct、Trojan Direct、Shadowsocks 2022 Direct；安装后支持随时增删协议（`argox -r`）；
+- Hysteria2、VLESS + XHTTP Direct、Trojan Direct 使用自签证书直连；更换 TLS 域名时会自动同步重新生成自签证书；
+- Nginx 作为 WS/XHTTP 协议的统一对外分流入口，Reality、Hysteria2、Trojan Direct、Shadowsocks 2022 Direct 与 XHTTP Direct 可按各自模式直连，架构简洁；
+- 内置 warp 链式代理解锁 chatGPT；
+- 节点信息输出到 V2rayN / Clash Meta / 小火箭 / Throne / Sing-box (SFI, SFA, SFM)，订阅自动适配客户端，一个订阅 url 走天下；
+- 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到 5 秒。
 
 ## 交互式运行脚本
 
@@ -126,6 +128,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -n / -N | 查看节点信息 |
   | -t / -T | 更换 Argo 隧道 |
   | -d / -D | 更换优选域名 / SNI / 节点信息 |
+  | -m / -M | 用户 / 专属 outbound 管理 |
   | -r / -R | 增加 / 删除协议 |
   | -u / -U | 卸载 |
   | -v / -V | 同步最新版本 |
@@ -134,28 +137,27 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -x / -X | 开启 / 关闭 Xray |
   | -f / -F | 非交互安装，后接参数文件路径 |
 
-
 ## 无交互极速安装
 
 ### 中文
+
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -l
 ```
 
 ### 英文
+
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
 ```
 
-
 ## Argo Json 的获取
 
-用户可以通过 Cloudflare Json 生成网轻松获取: https://fscarmen.cloudflare.now.cc
+用户可以通过 Cloudflare Json 生成网轻松获取: <https://fscarmen.cloudflare.now.cc>
 
 ![image](https://user-images.githubusercontent.com/62703343/224388718-6adf22d0-01d3-46a0-8063-bc0a2210795f.png)
 
 如想手动，可以参考，以 Debian 为例，需要用到的命令，[Deron Cheng - CloudFlare Argo Tunnel 试用](https://zhengweidong.com/try-cloudflare-argo-tunnel)
-
 
 ## Argo Token 的获取
 
@@ -167,10 +169,9 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
 
-
 ## 使用 Cloudflare API 自动创建 Argo
 
-1. 访问 https://dash.cloudflare.com/profile/api-tokens
+1. 访问 <https://dash.cloudflare.com/profile/api-tokens>
 2. API 令牌 > 创建令牌 > 创建自定义令牌
 3. 添加以下权限:
    - 帐户 > Cloudflare One连接器: Cloudflared > 编辑
@@ -180,20 +181,18 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 <img width="1366" height="646" alt="image" src="https://github.com/user-attachments/assets/207bfee1-583d-4a28-acfc-1041555ecf35" />
 
-
 ## 各种场景下 xray outbound 和 routing 模板的说明
 
-* 域名分类中包含的各具体域名: https://github.com/v2fly/domain-list-community/blob/master/data
-* Routing 路由说明: https://www.v2fly.org/config/routing.html
-* 修改 `/etc/argox/outbound.json`，注意: 请先备份好原 `outbound.json` 文件，修改的 json 做到 https://www.json.cn/ 查看格式
-* 修改后运行 `systemctl restart xray; sleep 1; systemctl is-active xray` ，反显 active 即生效，如为 failed 即为失败，请检查配置文件格式
+- 域名分类中包含的各具体域名: <https://github.com/v2fly/domain-list-community/blob/master/data>
+- Routing 路由说明: <https://www.v2fly.org/config/routing.html>
+- 修改 `/etc/argox/outbound.json`，注意: 请先备份好原 `outbound.json` 文件，修改的 json 做到 <https://www.json.cn/> 查看格式
+- 修改后运行 `systemctl restart xray; sleep 1; systemctl is-active xray` ，反显 active 即生效，如为 failed 即为失败，请检查配置文件格式
 
 | 说明 | 模板示例 |
 | --- | ------ |
 | chatGPT 使用链式 warp 代理，不需要本地安装 warp，其余流量走 vps 默认的网络出口 | [warp](https://gitlab.com/fscarmen/warp#通过-warp-解锁-chatgpt-的方法) |
 | 指定流量走本机指定的网络接口，对于双栈能区分 IPv4 或 IPv6，其余流量走 vps 默认的网络出口 | [interface](https://gitlab.com/fscarmen/warp#指定网站分流到-interface-的-xray-配置模板适用于-warp-client-warp-和-warp-warp-go-非全局) |
 | 指定流量走本机指定的socks5代理，对于双栈能区分 IPv4 或 IPv6，其余流量走 vps 默认的网络出口 | [socks5](https://gitlab.com/fscarmen/warp#指定网站分流到-socks5-的-xray-配置模板-适用于-warp-client-proxy-和-wireproxy) |
-
 
 ## 主体目录文件及说明
 
@@ -223,7 +222,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 └── qrencode                  # QR 码编码二进制文件
 ```
 
-
 ## 感谢赞助商
 
 ### 感谢 vps.town 对本项目的支持和赞助
@@ -236,11 +234,10 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 
 #### ✨ 服务优势
 
-* 安全的记忆。您值得信赖的伙伴
+- 安全的记忆。您值得信赖的伙伴
 
-* 坚如磐石的数据中心。高枕无忧
+- 坚如磐石的数据中心。高枕无忧
 
-
-## 免责声明:
-* 本程序仅供学习了解, 非盈利目的，请于下载后 24 小时内删除, 不得用作任何商业用途, 文字、数据及图片均有所属版权, 如转载须注明来源。
-* 使用本程序必循遵守部署免责声明。使用本程序必循遵守部署服务器所在地、所在国家和用户所在国家的法律法规, 程序作者不对使用者任何不当行为负责。
+## 免责声明
+- 本程序仅供学习了解, 非盈利目的，请于下载后 24 小时内删除, 不得用作任何商业用途, 文字、数据及图片均有所属版权, 如转载须注明来源。
+- 使用本程序必循遵守部署免责声明。使用本程序必循遵守部署服务器所在地、所在国家和用户所在国家的法律法规, 程序作者不对使用者任何不当行为负责。

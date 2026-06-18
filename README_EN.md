@@ -2,6 +2,8 @@
 
 [中文](README.md) | English
 
+> This project is a fork-based derivative of [fscarmen/ArgoX](https://github.com/fscarmen/ArgoX.git), adding multi-user and per-user dedicated outbound management.
+
 * * *
 
 # Table of Contents
@@ -21,6 +23,7 @@
 * * *
 
 ## Update Information
+
 2026.06.04 v2.0.7 1. Replace Nekobox with Throne for client output; 2. Independent v2rayN configuration output; 3. Security upgrade: remove insecure=true, use TLS certificate fingerprint verification
 
 2026.04.21 v2.0.6 1. Keep XHTTP over CDN on the Nginx reverse-proxy path and let Nginx handle path-based routing; 2. Add Clash Mihomo-compatible XHTTP client output for fixed tunnels in HTTP/1.1 CDN and HTTP/3 direct modes
@@ -41,7 +44,7 @@
 >
 >2026.03.30 v2.0.0 Refactor ArgoX into a modular protocol system, add support for Hysteria2 and VLESS/XHTTP, and enable fully customizable protocol installation and management.
 >
->2025.12.15 v1.6.13 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
+>2025.12.15 v1.6.13 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: <https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh>
 >
 >2025.12.09 v1.6.12 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use `-l` or `-L`; English users can use `-k` or `-K`. Case-insensitive support makes operations more flexible.
 >
@@ -81,7 +84,7 @@
 >
 >2023.4.13 1.0
 >
->2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at https://fscarmen.cloudflare.now.cc; 2. Change the sensitive path names; 3. Add CDN for download
+>2023.3.11 beta6 1. Users can easily obtain the JSON of a fixed domain name tunnel through the accompanying function website at <https://fscarmen.cloudflare.now.cc>; 2. Change the sensitive path names; 3. Add CDN for download
 >
 >2023.3.4 beta5 1. Change listening to all network addresses to only Argo tunnel directed listening for added security; 2. Argo Tunnel supports dualstack
 >
@@ -95,21 +98,19 @@
 
 </details>
 
+## Project Features
 
-## Project Features:
-
-* Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / direct TLS;
-* Normally CF backhauls from data centers, Argo creates two reverse links to two nearby data centers, and backhauls from the source server through the nearby data centers. The line between the user's data center and the source server's nearby data center is CF's proprietary black box line;
-* Using CloudFlare's Argo Tunnel with TLS encrypted communication, application traffic can be securely transmitted to the Cloudflare network, improving application security and reliability. In addition, Argo Tunnel can also prevent network threats such as IP leaks and DDoS attacks;
-* Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
-* Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
-* **Select protocols on demand during installation**, supporting 11 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
-* Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
-* Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
-* Built-in warp chained proxy to unlock chatGPT;
-* Node information output to V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
-* Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
-
+- Deploy Xray in VPS, using the scheme Argo + Xray + Reality / Hysteria2 / Argo + Xray + WebSocket + TLS / XHTTP / direct TLS;
+- Normally CF backhauls from data centers, Argo creates two reverse links to two nearby data centers, and backhauls from the source server through the nearby data centers. The line between the user's data center and the source server's nearby data center is CF's proprietary black box line;
+- Using CloudFlare's Argo Tunnel with TLS encrypted communication, application traffic can be securely transmitted to the Cloudflare network, improving application security and reliability. In addition, Argo Tunnel can also prevent network threats such as IP leaks and DDoS attacks;
+- Argo is an intranet tunnel, meaning Xray's inbound does not expose ports externally, increasing security, and does not require camouflage websites that waste resources. It also supports all Cloudflare ports. At the same time, the server outputs Argo Ws data streams, greatly simplifying data processing and improving response. TLS is provided by CF, avoiding multiple TLS;
+- Argo Tunnel supports both temporary tunnels and fixed domain names through Token or cloudflared Cli methods. Direct optimization + tunnel does not require domain certificates and can be converted at any time after installation;
+- **Select protocols on demand during installation**, supporting 11 protocols: VLESS + Reality Vision, Hysteria2, VLESS + Reality gRPC, VLESS + WS, VMess + WS, Trojan + WS, Shadowsocks + WS, VLESS + XHTTP, VLESS + XHTTP Direct, Trojan Direct, Shadowsocks 2022 Direct; add or remove protocols at any time after installation (`argox -r`);
+- Hysteria2, VLESS + XHTTP Direct, and Trojan Direct use self-signed certificates for direct connections; the self-signed certificate is regenerated automatically when the TLS domain changes;
+- Nginx serves as the unified external dispatcher for WS/XHTTP protocols; Reality, Hysteria2, Trojan Direct, Shadowsocks 2022 Direct, and XHTTP Direct can use their respective direct modes — clean and simple architecture;
+- Built-in warp chained proxy to unlock chatGPT;
+- Node information output to V2rayN / Clash Meta / Shadowrocket / Throne / Sing-box (SFI, SFA, SFM), subscription automatically adapts to clients, one subscription URL for everything;
+- Ultra-fast installation, either interactive or non-interactive like docker compose. Put all parameters in a configuration file in advance, taking less than 5 seconds.
 
 ## Interactive Running Script
 
@@ -127,6 +128,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -n / -N | View node information |
   | -t / -T | Change Argo tunnel |
   | -d / -D | Change preferred CDN / SNI / node info |
+  | -m / -M | User / dedicated outbound management |
   | -r / -R | Add / Remove protocols |
   | -u / -U | Uninstall |
   | -v / -V | Sync to latest version |
@@ -135,22 +137,23 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
   | -x / -X | Enable / Disable Xray |
   | -f / -F | Non-interactive install, followed by parameter file path |
 
-
 ## Non-interactive Ultra-fast Installation
 
 ### Chinese
+
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -l
 ```
 
 ### English
+
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
 ```
 
 ## Obtaining Argo Json
 
-Users can easily obtain it through the Cloudflare Json generation website: https://fscarmen.cloudflare.now.cc
+Users can easily obtain it through the Cloudflare Json generation website: <https://fscarmen.cloudflare.now.cc>
 
 ![image](https://user-images.githubusercontent.com/62703343/224388718-6adf22d0-01d3-46a0-8063-bc0a2210795f.png)
 
@@ -166,10 +169,9 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 
 <img width="1155" alt="image" src="https://user-images.githubusercontent.com/92626977/218253971-60f11bbf-9de9-4082-9e46-12cd2aad79a1.png">
 
-
 ## Use Cloudflare API to automatically create Argo
 
-1. Visit https://dash.cloudflare.com/profile/api-tokens
+1. Visit <https://dash.cloudflare.com/profile/api-tokens>
 2. API Tokens > Create Token > Create Custom Token
 3. Add the following permissions:
    - Account > Cloudflare One Connectors: cloudflared > Edit
@@ -181,10 +183,10 @@ Detailed tutorial: [Synology Suite: Chinese Tutorial for Cloudflare Tunnel Penet
 
 ## Description of Xray outbound and routing templates in various scenarios
 
-* Domain classifications containing specific domains: https://github.com/v2fly/domain-list-community/blob/master/data
-* Routing instructions: https://www.v2fly.org/config/routing.html
-* Modify `/etc/argox/outbound.json`. Note: Please backup the original `outbound.json` file first. Check the format of the modified json at https://www.json.cn/
-* After modification, run `systemctl restart xray; sleep 1; systemctl is-active xray`. If it shows active, it's effective. If it shows failed, check the configuration file format.
+- Domain classifications containing specific domains: <https://github.com/v2fly/domain-list-community/blob/master/data>
+- Routing instructions: <https://www.v2fly.org/config/routing.html>
+- Modify `/etc/argox/outbound.json`. Note: Please backup the original `outbound.json` file first. Check the format of the modified json at <https://www.json.cn/>
+- After modification, run `systemctl restart xray; sleep 1; systemctl is-active xray`. If it shows active, it's effective. If it shows failed, check the configuration file format.
 
 | Description | Template Example |
 | --- | ------ |
@@ -232,10 +234,10 @@ Experience the speed, stability, and security of VPS.Town's all-in-one cloud sol
 
 #### ✨ Key Features
 
-* Memories Secured. Your Trusted Companion.
+- Memories Secured. Your Trusted Companion.
 
-* Rock-Solid Data Centers. Peace of Mind.
+- Rock-Solid Data Centers. Peace of Mind.
 
-## Disclaimer:
-* This program is for learning and understanding only, non-profit. Please delete within 24 hours after downloading. It must not be used for any commercial purposes. Text, data and images are copyrighted. Reproduction must indicate the source.
-* Use of this program must comply with the deployment disclaimer. Users must abide by the laws and regulations of the deployment server's location, country and the user's country. The program author is not responsible for any improper actions by users.
+## Disclaimer
+- This program is for learning and understanding only, non-profit. Please delete within 24 hours after downloading. It must not be used for any commercial purposes. Text, data and images are copyrighted. Reproduction must indicate the source.
+- Use of this program must comply with the deployment disclaimer. Users must abide by the laws and regulations of the deployment server's location, country and the user's country. The program author is not responsible for any improper actions by users.
