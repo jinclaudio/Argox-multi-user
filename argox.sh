@@ -1303,8 +1303,27 @@ sync_user_subscriptions() {
   _rewrite_user_subscribe() {
     "$WORK_DIR/jq" -Rr -s \
       --arg old_uuid "$1" --arg new_uuid "$2" \
-      --arg old_name "${NODE_NAME:-}" --arg new_name "$3" \
-      'split($old_uuid) | join($new_uuid) | if $old_name != "" then split($old_name) | join($new_name) else . end'
+      --arg old_name "${NODE_NAME:-}" --arg new_name "$3" '
+        def repl:
+          split($old_uuid) | join($new_uuid)
+          | if $old_name != "" then split($old_name) | join($new_name) else . end;
+        def std_b64:
+          gsub("-"; "+") | gsub("_"; "/") as $s
+          | $s + (["", "", "==", "="][($s | length) % 4]);
+        def url_b64: @base64 | gsub("\\+"; "-") | gsub("/"; "_") | gsub("=+$"; "");
+        def rb64($url):
+          try (if $url then std_b64 else . end | @base64d | repl | if $url then url_b64 else @base64 end) catch .;
+        def nested:
+          if test("^vmess://[A-Za-z0-9+/=]+$") then
+            capture("^(?<pre>vmess://)(?<b>[A-Za-z0-9+/=]+)$") | .pre + (.b | rb64(false))
+          elif test("^v2rayn://[^/]+/[A-Za-z0-9_-]+") then
+            capture("^(?<pre>v2rayn://[^/]+/)(?<b>[A-Za-z0-9_-]+)(?<post>.*)$") | .pre + (.b | rb64(true)) + .post
+          elif test("^(vless|vmess)://[A-Za-z0-9+/=]+\\?") then
+            capture("^(?<pre>(vless|vmess)://)(?<b>[A-Za-z0-9+/=]+)(?<post>\\?.*)$") | .pre + (.b | rb64(false)) + .post
+          elif test("^ss://[A-Za-z0-9+/=]+@") then
+            capture("^(?<pre>ss://)(?<b>[A-Za-z0-9+/=]+)(?<post>@.*)$") | .pre + (.b | rb64(false)) + .post
+          else . end;
+        split("\n") | map(repl | nested) | join("\n")'
   }
   while IFS=$'\t' read -r _name _uuid _email; do
     [ -z "$_uuid" ] && continue
@@ -1326,6 +1345,15 @@ sync_user_subscriptions() {
           ;;
       esac
     done
+    if [ "$_uuid" != "$_default_uuid" ] && [ -s "$_dir/v2rayn" ]; then
+      {
+        echo ""
+        echo "*******************************************"
+        echo "V2rayN - $_name ($_email)"
+        echo "----------------------------"
+        base64 -d "$_dir/v2rayn" 2>/dev/null || cat "$_dir/v2rayn"
+      } >> "$WORK_DIR/list"
+    fi
   done < <("$WORK_DIR/jq" -r '.[] | [.name,.uuid,.email] | @tsv' "$USERS_FILE")
 
   {
