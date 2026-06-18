@@ -17,7 +17,6 @@
 - [使用 Cloudflare API 自动创建 Argo](README.md#使用-cloudflare-api-自动创建-argo)
 - [各种场景下 xray outbound 和 routing 模板的说明](README.md#各种场景下-xray-outbound-和-routing-模板的说明)
 - [主体目录文件及说明](README.md#主体目录文件及说明)
-- [感谢赞助商](README.md#感谢赞助商)
 - [免责声明](README.md#免责声明)
 
 * * *
@@ -115,7 +114,7 @@
 ## 交互式运行脚本
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/jinclaudio/Argox-multi-user/main/argox.sh)
 ```
 
   | 参数 | 说明 |
@@ -142,13 +141,13 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ### 中文
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -l
+bash <(wget -qO- https://raw.githubusercontent.com/jinclaudio/Argox-multi-user/main/argox.sh) -l
 ```
 
 ### 英文
 
 ```
-bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -k
+bash <(wget -qO- https://raw.githubusercontent.com/jinclaudio/Argox-multi-user/main/argox.sh) -k
 ```
 
 ## Argo Json 的获取
@@ -221,22 +220,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh)
 ├── jq                        # 命令行 JSON 处理器
 └── qrencode                  # QR 码编码二进制文件
 ```
-
-## 感谢赞助商
-
-### 感谢 vps.town 对本项目的支持和赞助
-
-<a href="https://vps.town" align="left">
-  <img src="https://vps.town/static/images/sponsor.png" alt="Sponsor" width="30%">
-</a>
-
-体验 VPS.Town 的速度、稳定性和安全性一体化云计算解决方案 - 专为推动您的业务创新而设计。
-
-#### ✨ 服务优势
-
-- 安全的记忆。您值得信赖的伙伴
-
-- 坚如磐石的数据中心。高枕无忧
 
 ## 免责声明
 - 本程序仅供学习了解, 非盈利目的，请于下载后 24 小时内删除, 不得用作任何商业用途, 文字、数据及图片均有所属版权, 如转载须注明来源。
