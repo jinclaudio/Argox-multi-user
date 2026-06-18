@@ -1260,7 +1260,8 @@ add_wireguard_outbound() {
           "address":$address,
           "peers":[{"publicKey":$publicKey,"endpoint":$endpoint,"allowedIPs":$allowedIPs}],
           "mtu":$mtu,
-          "domainStrategy":"ForceIPv4"
+          "domainStrategy":"ForceIPv4",
+          "noKernelTun":true
         }
       }])
     ' "$WORK_DIR/outbound.json" > "$_tmp" && mv "$_tmp" "$WORK_DIR/outbound.json"
