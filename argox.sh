@@ -1300,6 +1300,12 @@ sync_users_to_xray_configs() {
 sync_user_subscriptions() {
   [ -s "$USERS_FILE" ] && [ -x "$WORK_DIR/jq" ] || return 0
   local _default_uuid="$1" _name _uuid _email _dir _file
+  _rewrite_user_subscribe() {
+    "$WORK_DIR/jq" -Rr -s \
+      --arg old_uuid "$1" --arg new_uuid "$2" \
+      --arg old_name "${NODE_NAME:-}" --arg new_name "$3" \
+      'split($old_uuid) | join($new_uuid) | if $old_name != "" then split($old_name) | join($new_name) else . end'
+  }
   while IFS=$'\t' read -r _name _uuid _email; do
     [ -z "$_uuid" ] && continue
     _dir="$WORK_DIR/subscribe/$_uuid"
@@ -1309,14 +1315,14 @@ sync_user_subscriptions() {
       case "$_file" in
         v2rayn|throne|shadowrocket)
           if base64 -d "$WORK_DIR/subscribe/$_file" > "$TEMP_DIR/sub_decode" 2>/dev/null; then
-            sed "s#${_default_uuid}#${_uuid}#g" "$TEMP_DIR/sub_decode" | base64 -w0 > "$_dir/$_file"
+            _rewrite_user_subscribe "$_default_uuid" "$_uuid" "$_name" < "$TEMP_DIR/sub_decode" | base64 -w0 > "$_dir/$_file"
             rm -f "$TEMP_DIR/sub_decode"
           else
-            cp "$WORK_DIR/subscribe/$_file" "$_dir/$_file"
+            _rewrite_user_subscribe "$_default_uuid" "$_uuid" "$_name" < "$WORK_DIR/subscribe/$_file" > "$_dir/$_file"
           fi
           ;;
         *)
-          sed "s#${_default_uuid}#${_uuid}#g" "$WORK_DIR/subscribe/$_file" > "$_dir/$_file"
+          _rewrite_user_subscribe "$_default_uuid" "$_uuid" "$_name" < "$WORK_DIR/subscribe/$_file" > "$_dir/$_file"
           ;;
       esac
     done
