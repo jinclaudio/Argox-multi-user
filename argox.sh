@@ -446,6 +446,7 @@ get_installed_protocols() {
 # 读取或更新 custom 文件中的 key=value（可用 . $CUSTOM_FILE 批量加载）
 write_custom() {
   local _KEY="$1" _VAL="$2"
+  mkdir -p "$(dirname "$CUSTOM_FILE")"
   if [ -s "$CUSTOM_FILE" ] && grep -q "^${_KEY}=" "$CUSTOM_FILE"; then
     sed -i "s|^${_KEY}=.*|${_KEY}=${_VAL}|" "$CUSTOM_FILE"
   else
@@ -4525,6 +4526,63 @@ menu_setting() {
   ACTION[0]() { exit; }
 }
 
+command_mode_help() {
+  clear
+  echo -e "======================================================================================================================\n"
+  info " ArgoX command mode"
+  echo -e "\nUsage:\n  argox [option]\n"
+  hint "  -n / -N   View node information"
+  hint "  -m / -M   User / dedicated outbound management"
+  hint "  -d / -D   Change preferred CDN / SNI / node info"
+  hint "  -r / -R   Add / Remove protocols"
+  hint "  -t / -T   Change Argo tunnel"
+  hint "  -a / -A   Enable / Disable Argo"
+  hint "  -x / -X   Enable / Disable Xray"
+  hint "  -v / -V   Sync Argo and Xray to latest version"
+  hint "  -u / -U   Uninstall"
+  hint "  -k / -K   Quick install (English)"
+  hint "  -l / -L   Quick install (Chinese)"
+  hint "  -f / -F   Non-interactive install with config file"
+  echo -e "\nExamples:\n  argox -n\n  argox -m\n  argox -r\n"
+  hint " m. Open TUI menu now"
+  hint " r. Reset saved startup mode"
+  hint " q. Exit"
+  reading "\n $(text 24) " COMMAND_MODE_CHOOSE
+  case "${COMMAND_MODE_CHOOSE,,}" in
+    m ) menu ;;
+    r ) write_custom 'uiMode' ''; info " Startup mode reset. Run argox again to choose. " ;;
+    * ) exit 0 ;;
+  esac
+}
+
+startup_mode() {
+  local _MODE=''
+  [ -s "$CUSTOM_FILE" ] && _MODE=$(awk -F= '/^uiMode=/{print $2}' "$CUSTOM_FILE")
+  case "${_MODE,,}" in
+    tui ) menu ;;
+    command|cmd ) command_mode_help ;;
+  esac
+
+  clear
+  echo -e "======================================================================================================================\n"
+  info " ArgoX startup mode"
+  echo ""
+  hint " 1. TUI menu"
+  hint " 2. Command mode"
+  hint " 3. TUI menu and remember"
+  hint " 4. Command mode and remember"
+  hint " 0. Exit"
+  reading "\n $(text 24) " STARTUP_MODE_CHOOSE
+  case "$STARTUP_MODE_CHOOSE" in
+    1 ) menu ;;
+    2 ) command_mode_help ;;
+    3 ) write_custom 'uiMode' 'tui'; menu ;;
+    4 ) write_custom 'uiMode' 'command'; command_mode_help ;;
+    0 ) exit 0 ;;
+    * ) menu ;;
+  esac
+}
+
 menu() {
   clear
   echo -e "======================================================================================================================\n"
@@ -4651,4 +4709,4 @@ check_dependencies
 [ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' ] && check_system_ip
 check_install
 menu_setting
-[ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || menu
+[ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || startup_mode

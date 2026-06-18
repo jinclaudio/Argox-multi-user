@@ -119,7 +119,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/jinclaudio/Argox-multi-user/m
 
   | 参数 | 说明 |
   | ------ | ------ |
-  | 无参数 | 交互式菜单 |
+  | 无参数 | 启动模式选择（TUI 菜单 / 命令模式） |
   | -c / -C | 强制使用中文 |
   | -e / -E | 强制使用英文 |
   | -k / -K | 极速安装（英文）|

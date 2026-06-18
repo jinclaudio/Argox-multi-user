@@ -119,7 +119,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/jinclaudio/Argox-multi-user/m
 
   | Option | Remark |
   | ------ | ------ |
-  | No argument | Interactive menu |
+  | No argument | Startup mode selector (TUI menu / command mode) |
   | -c / -C | Force Chinese |
   | -e / -E | Force English |
   | -k / -K | Quick install (English) |
